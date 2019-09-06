@@ -154,7 +154,7 @@ commands:
             # the default Docker container only has 2 CPUs available.
             # That is why we explicitly specify -p=4 to reduce the number of parallel build processes
             GOFLAGS: -p=4
-          command: go test -race -coverprofile=coverage.txt -covermode=atomic ./...
+          command: ./goall.sh test -race -coverprofile=coverage.txt -covermode=atomic ./...
 
   # build_packages creates the project's artifacts.
   build_packages:
