@@ -19,6 +19,7 @@ require (
 	github.com/go-chi/chi v4.0.3+incompatible
 	github.com/go-errors/errors v0.0.0-20150906023321-a41850380601
 	github.com/gobuffalo/packr v1.12.1 // indirect
+	github.com/gofiber/fiber/v2 v2.8.0
 	github.com/google/go-querystring v0.0.0-20160401233042-9235644dd9e5 // indirect
 	github.com/google/martian v2.1.0+incompatible // indirect
 	github.com/googleapis/gax-go v2.0.2+incompatible // indirect
@@ -31,9 +32,6 @@ require (
 	github.com/jarcoal/httpmock v0.0.0-20161210151336-4442edb3db31
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/k0kubun/colorstring v0.0.0-20150214042306-9440f1994b88 // indirect
-	github.com/klauspost/compress v0.0.0-20161106143436-e3b7981a12dd // indirect
-	github.com/klauspost/cpuid v0.0.0-20160302075316-09cded8978dc // indirect
-	github.com/klauspost/crc32 v0.0.0-20161016154125-cb6bfca970f6 // indirect
 	github.com/kr/pretty v0.0.0-20150520163514-e6ac2fc51e89 // indirect
 	github.com/kr/text v0.0.0-20150520163712-e373e137fafd // indirect
 	github.com/lann/builder v0.0.0-20140829050551-c603884a2c1f // indirect
@@ -68,8 +66,6 @@ require (
 	github.com/stellar/throttled v2.2.3-0.20190823235211-89d75816f59d+incompatible
 	github.com/stretchr/testify v1.5.1
 	github.com/tyler-smith/go-bip39 v0.0.0-20180618194314-52158e4697b8
-	github.com/valyala/bytebufferpool v1.0.0 // indirect
-	github.com/valyala/fasthttp v0.0.0-20170109085056-0a7f0a797cd6 // indirect
 	github.com/xdrpp/goxdr v0.1.0
 	github.com/xeipuuv/gojsonpointer v0.0.0-20151027082146-e0fe6f683076 // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20150808065054-e02fc20de94c // indirect
@@ -79,9 +75,6 @@ require (
 	github.com/yudai/golcs v0.0.0-20150405163532-d1c525dea8ce // indirect
 	github.com/yudai/pp v2.0.1+incompatible // indirect
 	github.com/ziutek/mymysql v1.5.4 // indirect
-	golang.org/x/crypto v0.0.0-20191112222119-e1110fd1c708 // indirect
-	golang.org/x/net v0.0.0-20190827160401-ba9fcec4b297 // indirect
-	golang.org/x/text v0.3.3 // indirect
 	golang.org/x/tools v0.0.0-20190624180213-70d37148ca0c // indirect
 	google.golang.org/api v0.3.1
 	google.golang.org/appengine v1.6.1 // indirect

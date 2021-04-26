@@ -22,15 +22,17 @@ type readResult struct {
 // snapshot. The Changes produced by a CheckpointChangeReader reflect the state of the Stellar
 // network at a particular checkpoint ledger sequence.
 type CheckpointChangeReader struct {
-	ctx        context.Context
-	has        *historyarchive.HistoryArchiveState
-	archive    historyarchive.ArchiveInterface
-	tempStore  tempSet
-	sequence   uint32
-	readChan   chan readResult
-	streamOnce sync.Once
-	closeOnce  sync.Once
-	done       chan bool
+	ctx           context.Context
+	startHas      *historyarchive.HistoryArchiveState
+	has           *historyarchive.HistoryArchiveState
+	archive       historyarchive.ArchiveInterface
+	tempStore     tempSet
+	startSequence uint32
+	sequence      uint32
+	readChan      chan readResult
+	streamOnce    sync.Once
+	closeOnce     sync.Once
+	done          chan bool
 
 	// This should be set to true in tests only
 	disableBucketListHashValidation bool
@@ -79,12 +81,21 @@ const (
 func NewCheckpointChangeReader(
 	ctx context.Context,
 	archive historyarchive.ArchiveInterface,
+	startSequence uint32,
 	sequence uint32,
 ) (*CheckpointChangeReader, error) {
 	manager := archive.GetCheckpointManager()
 
 	// The nth ledger is a checkpoint ledger iff: n+1 mod f == 0, where f is the
 	// checkpoint frequency (64 by default).
+	if startSequence != 0 && !manager.IsCheckpoint(startSequence) {
+		return nil, errors.Errorf(
+			"%d is not a checkpoint ledger, try %d or %d "+
+				"(in general, try n where n+1 mod %d == 0)",
+			sequence, manager.PrevCheckpoint(startSequence),
+			manager.NextCheckpoint(startSequence),
+			manager.GetCheckpointFrequency())
+	}
 	if !manager.IsCheckpoint(sequence) {
 		return nil, errors.Errorf(
 			"%d is not a checkpoint ledger, try %d or %d "+
@@ -92,6 +103,15 @@ func NewCheckpointChangeReader(
 			sequence, manager.PrevCheckpoint(sequence),
 			manager.NextCheckpoint(sequence),
 			manager.GetCheckpointFrequency())
+	}
+
+	var startHas *historyarchive.HistoryArchiveState
+	if startSequence != 0 {
+		has, err := archive.GetCheckpointHAS(startSequence)
+		if err != nil {
+			return nil, errors.Wrapf(err, "unable to get checkpoint HAS at ledger sequence %d", startSequence)
+		}
+		startHas = &has
 	}
 
 	has, err := archive.GetCheckpointHAS(sequence)
@@ -107,6 +127,7 @@ func NewCheckpointChangeReader(
 
 	return &CheckpointChangeReader{
 		ctx:        ctx,
+		startHas:   startHas,
 		has:        &has,
 		archive:    archive,
 		tempStore:  tempStore,
@@ -172,8 +193,16 @@ func (r *CheckpointChangeReader) streamBuckets() {
 	}()
 
 	var buckets []historyarchive.Hash
+LoopHasCurrentBuckets:
 	for i := 0; i < len(r.has.CurrentBuckets); i++ {
 		b := r.has.CurrentBuckets[i]
+		if r.startHas != nil {
+			for _, startHasB := range r.startHas.CurrentBuckets {
+				if b == startHasB {
+					continue LoopHasCurrentBuckets
+				}
+			}
+		}
 		for _, hashString := range []string{b.Curr, b.Snap} {
 			hash, err := historyarchive.DecodeHash(hashString)
 			if err != nil {
