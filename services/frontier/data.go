@@ -27,15 +27,12 @@ type Account struct {
 }
 
 func NewData(archiveURL string) (*Data, error) {
-	archive, err := historyarchive.Connect(
-		archiveURL,
-		historyarchive.ConnectOptions{},
-	)
+	archive, err := historyarchive.Connect(archiveURL, historyarchive.ConnectOptions{})
 	if err != nil {
 		return nil, err
 	}
 	data := &Data{
-		archive: archive,
+		archive:  archive,
 		accounts: map[string]Account{},
 	}
 	return data, nil
@@ -47,22 +44,29 @@ func (d *Data) Update() error {
 		return err
 	}
 
+	// If the root HAS hasn't changed, there's no new data to collect.
 	if rootHAS == d.rootHAS {
 		return nil
 	}
 
-	reader, err := ingest.NewCheckpointChangeReader(context.Background(), d.archive, d.rootHAS.CurrentLedger, rootHAS.CurrentLedger)
+	reader, err := ingest.NewCheckpointChangeReader(
+		context.Background(),
+		d.archive,
+		d.rootHAS.CurrentLedger,
+		rootHAS.CurrentLedger,
+	)
 	if err != nil {
 		panic(err)
 	}
 
-	accounts := map[string]Account{}
+	accountsUpdated := map[string]Account{}
+	accountsDeleted := map[string]struct{}{}
 
 	ts := time.Now()
 	fmt.Println("Update start:", ts)
 
 	for {
-		entry, err := reader.Read()
+		change, err := reader.ReadRawChange()
 		if err == io.EOF {
 			break
 		}
@@ -70,23 +74,23 @@ func (d *Data) Update() error {
 			panic(err)
 		}
 
-		switch entry.Type {
-		case xdr.LedgerEntryTypeAccount:
-			a := entry.Post.Data.Account
-			if a == nil {
-				break
+		switch change.Type {
+		case xdr.LedgerEntryChangeTypeLedgerEntryState:
+			state := change.State
+			switch state.Data.Type {
+			case xdr.LedgerEntryTypeAccount:
+				a := state.Data.Account
+				da := accountsUpdated[a.AccountId.Address()]
+				da.AccountEntry = *a
+				accountsUpdated[a.AccountId.Address()] = da
+			case xdr.LedgerEntryTypeTrustline:
+				t := state.Data.TrustLine
+				da := accountsUpdated[t.AccountId.Address()]
+				da.TrustLineEntries = append(da.TrustLineEntries, *t)
+				accountsUpdated[t.AccountId.Address()] = da
 			}
-			da := accounts[a.AccountId.Address()]
-			da.AccountEntry = *a
-			accounts[a.AccountId.Address()] = da
-		case xdr.LedgerEntryTypeTrustline:
-			t := entry.Post.Data.TrustLine
-			if t == nil {
-				break
-			}
-			da := accounts[t.AccountId.Address()]
-			da.TrustLineEntries = append(da.TrustLineEntries, *t)
-			accounts[t.AccountId.Address()] = da
+		case xdr.LedgerEntryChangeTypeLedgerEntryRemoved:
+			key := change.Removed
 		}
 	}
 
@@ -99,7 +103,7 @@ func (d *Data) Update() error {
 	defer d.mutex.Unlock()
 
 	d.rootHAS = rootHAS
-	for k, v := range accounts {
+	for k, v := range accountsUpdated {
 		d.accounts[k] = v
 	}
 

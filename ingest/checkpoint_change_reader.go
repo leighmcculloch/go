@@ -88,21 +88,19 @@ func NewCheckpointChangeReader(
 
 	// The nth ledger is a checkpoint ledger iff: n+1 mod f == 0, where f is the
 	// checkpoint frequency (64 by default).
-	if startSequence != 0 && !manager.IsCheckpoint(startSequence) {
-		return nil, errors.Errorf(
-			"%d is not a checkpoint ledger, try %d or %d "+
-				"(in general, try n where n+1 mod %d == 0)",
-			sequence, manager.PrevCheckpoint(startSequence),
-			manager.NextCheckpoint(startSequence),
-			manager.GetCheckpointFrequency())
-	}
-	if !manager.IsCheckpoint(sequence) {
-		return nil, errors.Errorf(
+	sequenceError := func(sequence uint32) error {
+		return errors.Errorf(
 			"%d is not a checkpoint ledger, try %d or %d "+
 				"(in general, try n where n+1 mod %d == 0)",
 			sequence, manager.PrevCheckpoint(sequence),
 			manager.NextCheckpoint(sequence),
 			manager.GetCheckpointFrequency())
+	}
+	if startSequence != 0 && !manager.IsCheckpoint(startSequence) {
+		return nil, sequenceError(startSequence)
+	}
+	if !manager.IsCheckpoint(sequence) {
+		return nil, sequenceError(sequence)
 	}
 
 	var startHas *historyarchive.HistoryArchiveState
@@ -192,18 +190,25 @@ func (r *CheckpointChangeReader) streamBuckets() {
 		close(r.readChan)
 	}()
 
+	// If a starting history archive state is provided, skip any buckets that
+	// are included in that. The reader will only report on changes between the
+	// two states.
+	hashesToSkip := map[string]bool{}
+	if r.startHas != nil {
+		for _, b := range r.startHas.CurrentBuckets {
+			hashesToSkip[b.Curr] = true
+			hashesToSkip[b.Snap] = true
+		}
+	}
+
 	var buckets []historyarchive.Hash
-LoopHasCurrentBuckets:
 	for i := 0; i < len(r.has.CurrentBuckets); i++ {
 		b := r.has.CurrentBuckets[i]
-		if r.startHas != nil {
-			for _, startHasB := range r.startHas.CurrentBuckets {
-				if b == startHasB {
-					continue LoopHasCurrentBuckets
-				}
-			}
-		}
 		for _, hashString := range []string{b.Curr, b.Snap} {
+			if hashesToSkip[hashString] {
+				continue
+			}
+
 			hash, err := historyarchive.DecodeHash(hashString)
 			if err != nil {
 				r.readChan <- r.error(errors.Wrap(err, "Error decoding bucket hash"))
@@ -459,6 +464,14 @@ LoopBucketEntry:
 			if !seen {
 				// Return LEDGER_ENTRY_STATE changes only now.
 				liveEntry := entry.MustLiveEntry()
+
+				// Skip entries that were last modified before the start
+				// sequence since the caller is only looking for changes since
+				// this ledger sequence.
+				if uint32(liveEntry.LastModifiedLedgerSeq) < r.startSequence {
+					continue
+				}
+
 				entryChange := xdr.LedgerEntryChange{
 					Type:  xdr.LedgerEntryChangeTypeLedgerEntryState,
 					State: &liveEntry,
@@ -486,10 +499,25 @@ LoopBucketEntry:
 				}
 			}
 		case xdr.BucketEntryTypeDeadentry:
-			err := r.tempStore.Add(h)
+			seen, err := r.tempStore.Exist(h)
 			if err != nil {
-				r.readChan <- r.error(errors.Wrap(err, "Error writing to tempStore"))
+				r.readChan <- r.error(errors.Wrap(err, "Error reading from tempStore"))
 				return false
+			}
+
+			if !seen {
+				entryChange := xdr.LedgerEntryChange{
+					Type:    xdr.LedgerEntryChangeTypeLedgerEntryRemoved,
+					Removed: &key,
+				}
+				r.readChan <- readResult{entryChange, nil}
+				if !oldestBucket {
+					err := r.tempStore.Add(h)
+					if err != nil {
+						r.readChan <- r.error(errors.Wrap(err, "Error writing to tempStore"))
+						return false
+					}
+				}
 			}
 		default:
 			r.readChan <- r.error(
@@ -510,8 +538,8 @@ LoopBucketEntry:
 	panic("Shouldn't happen")
 }
 
-// Read returns a new ledger entry change on each call, returning io.EOF when the stream ends.
-func (r *CheckpointChangeReader) Read() (Change, error) {
+// ReadRawChange returns a new ledger entry change on each call, returning io.EOF when the stream ends.
+func (r *CheckpointChangeReader) ReadRawChange() (xdr.LedgerEntryChange, error) {
 	r.streamOnce.Do(func() {
 		go r.streamBuckets()
 	})
@@ -520,15 +548,24 @@ func (r *CheckpointChangeReader) Read() (Change, error) {
 	result, ok := <-r.readChan
 	if !ok {
 		// when channel is closed then return io.EOF
-		return Change{}, io.EOF
+		return xdr.LedgerEntryChange{}, io.EOF
 	}
 
 	if result.e != nil {
-		return Change{}, errors.Wrap(result.e, "Error while reading from buckets")
+		return xdr.LedgerEntryChange{}, errors.Wrap(result.e, "Error while reading from buckets")
+	}
+	return result.entryChange, nil
+}
+
+// Read returns a simplified ingest change on each call, returning io.EOF when the stream ends.
+func (r *CheckpointChangeReader) Read() (Change, error) {
+	rawChange, err := r.ReadRawChange()
+	if err != nil {
+		return Change{}, err
 	}
 	return Change{
-		Type: result.entryChange.EntryType(),
-		Post: result.entryChange.State,
+		Type: rawChange.EntryType(),
+		Post: rawChange.State,
 	}, nil
 }
 
