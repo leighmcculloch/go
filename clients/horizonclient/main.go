@@ -229,6 +229,13 @@ type HorizonRequest interface {
 	BuildURL() (string, error)
 }
 
+// HorizonRequestWithBody contains methods implemented by request structs for
+// horizon endpoints that have data to include in the request body.
+type HorizonRequestWithBody interface {
+	HorizonRequest
+	BuildBody() ([]byte, error)
+}
+
 // AccountsRequest struct contains data for making requests to the accounts endpoint of a horizon server.
 // Either "Signer" or "Asset" fields should be set when retrieving Accounts.
 // At the moment, you can't use both filters at the same time.

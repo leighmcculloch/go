@@ -41,6 +41,7 @@ type Client struct {
 type ClientExpectation struct {
 	Method string
 	URL    string
+	Body   []byte
 	Client *Client
 }
 

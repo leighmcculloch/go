@@ -32,12 +32,19 @@ func (c *Client) sendRequest(hr HorizonRequest, resp interface{}) (err error) {
 	}
 
 	c.HorizonURL = c.fixHorizonURL()
-	_, ok := hr.(submitRequest)
+
+	body := []byte(nil)
+
+	_, ok := hr.(HorizonRequestWithBody)
 	if ok {
-		return c.sendRequestURL(c.HorizonURL+endpoint, "post", resp)
+		// body, err = hrb.BuildBody()
+		// if err != nil {
+		// 	return
+		// }
+		return c.sendRequestURL(c.HorizonURL+endpoint, body, "post", resp)
 	}
 
-	return c.sendRequestURL(c.HorizonURL+endpoint, "get", resp)
+	return c.sendRequestURL(c.HorizonURL+endpoint, body, "get", resp)
 }
 
 // checkMemoRequired implements a memo required check as defined in
@@ -107,7 +114,7 @@ func (c *Client) checkMemoRequired(transaction *txnbuild.Transaction) error {
 
 // sendRequestURL sends a url to a horizon server.
 // It can be used for requests that do not implement the HorizonRequest interface.
-func (c *Client) sendRequestURL(requestURL string, method string, a interface{}) (err error) {
+func (c *Client) sendRequestURL(requestURL string, requestBody []byte, method string, a interface{}) (err error) {
 	var req *http.Request
 
 	if method == "post" || method == "POST" {
@@ -587,7 +594,7 @@ func (c *Client) Fund(addr string) (tx hProtocol.Transaction, err error) {
 		return tx, errors.New("can't fund account from friendbot on production network")
 	}
 	friendbotURL := fmt.Sprintf("%sfriendbot?addr=%s", c.fixHorizonURL(), addr)
-	err = c.sendRequestURL(friendbotURL, "get", &tx)
+	err = c.sendRequestURL(friendbotURL, nil, "get", &tx)
 	return
 }
 
@@ -678,7 +685,7 @@ func (c *Client) FetchTimebounds(seconds int64) (txnbuild.Timebounds, error) {
 
 // Root loads the root endpoint of horizon
 func (c *Client) Root() (root hProtocol.Root, err error) {
-	err = c.sendRequestURL(c.fixHorizonURL(), "get", &root)
+	err = c.sendRequestURL(c.fixHorizonURL(), nil, "get", &root)
 	return
 }
 
@@ -689,67 +696,67 @@ func (c *Client) Version() string {
 
 // NextAccountsPage returns the next page of accounts.
 func (c *Client) NextAccountsPage(page hProtocol.AccountsPage) (accounts hProtocol.AccountsPage, err error) {
-	err = c.sendRequestURL(page.Links.Next.Href, "get", &accounts)
+	err = c.sendRequestURL(page.Links.Next.Href, nil, "get", &accounts)
 	return
 }
 
 // NextAssetsPage returns the next page of assets.
 func (c *Client) NextAssetsPage(page hProtocol.AssetsPage) (assets hProtocol.AssetsPage, err error) {
-	err = c.sendRequestURL(page.Links.Next.Href, "get", &assets)
+	err = c.sendRequestURL(page.Links.Next.Href, nil, "get", &assets)
 	return
 }
 
 // PrevAssetsPage returns the previous page of assets.
 func (c *Client) PrevAssetsPage(page hProtocol.AssetsPage) (assets hProtocol.AssetsPage, err error) {
-	err = c.sendRequestURL(page.Links.Prev.Href, "get", &assets)
+	err = c.sendRequestURL(page.Links.Prev.Href, nil, "get", &assets)
 	return
 }
 
 // NextLedgersPage returns the next page of ledgers.
 func (c *Client) NextLedgersPage(page hProtocol.LedgersPage) (ledgers hProtocol.LedgersPage, err error) {
-	err = c.sendRequestURL(page.Links.Next.Href, "get", &ledgers)
+	err = c.sendRequestURL(page.Links.Next.Href, nil, "get", &ledgers)
 	return
 }
 
 // PrevLedgersPage returns the previous page of ledgers.
 func (c *Client) PrevLedgersPage(page hProtocol.LedgersPage) (ledgers hProtocol.LedgersPage, err error) {
-	err = c.sendRequestURL(page.Links.Prev.Href, "get", &ledgers)
+	err = c.sendRequestURL(page.Links.Prev.Href, nil, "get", &ledgers)
 	return
 }
 
 // NextEffectsPage returns the next page of effects.
 func (c *Client) NextEffectsPage(page effects.EffectsPage) (efp effects.EffectsPage, err error) {
-	err = c.sendRequestURL(page.Links.Next.Href, "get", &efp)
+	err = c.sendRequestURL(page.Links.Next.Href, nil, "get", &efp)
 	return
 }
 
 // PrevEffectsPage returns the previous page of effects.
 func (c *Client) PrevEffectsPage(page effects.EffectsPage) (efp effects.EffectsPage, err error) {
-	err = c.sendRequestURL(page.Links.Prev.Href, "get", &efp)
+	err = c.sendRequestURL(page.Links.Prev.Href, nil, "get", &efp)
 	return
 }
 
 // NextTransactionsPage returns the next page of transactions.
 func (c *Client) NextTransactionsPage(page hProtocol.TransactionsPage) (transactions hProtocol.TransactionsPage, err error) {
-	err = c.sendRequestURL(page.Links.Next.Href, "get", &transactions)
+	err = c.sendRequestURL(page.Links.Next.Href, nil, "get", &transactions)
 	return
 }
 
 // PrevTransactionsPage returns the previous page of transactions.
 func (c *Client) PrevTransactionsPage(page hProtocol.TransactionsPage) (transactions hProtocol.TransactionsPage, err error) {
-	err = c.sendRequestURL(page.Links.Prev.Href, "get", &transactions)
+	err = c.sendRequestURL(page.Links.Prev.Href, nil, "get", &transactions)
 	return
 }
 
 // NextOperationsPage returns the next page of operations.
 func (c *Client) NextOperationsPage(page operations.OperationsPage) (operations operations.OperationsPage, err error) {
-	err = c.sendRequestURL(page.Links.Next.Href, "get", &operations)
+	err = c.sendRequestURL(page.Links.Next.Href, nil, "get", &operations)
 	return
 }
 
 // PrevOperationsPage returns the previous page of operations.
 func (c *Client) PrevOperationsPage(page operations.OperationsPage) (operations operations.OperationsPage, err error) {
-	err = c.sendRequestURL(page.Links.Prev.Href, "get", &operations)
+	err = c.sendRequestURL(page.Links.Prev.Href, nil, "get", &operations)
 	return
 }
 
@@ -765,25 +772,25 @@ func (c *Client) PrevPaymentsPage(page operations.OperationsPage) (operations.Op
 
 // NextOffersPage returns the next page of offers.
 func (c *Client) NextOffersPage(page hProtocol.OffersPage) (offers hProtocol.OffersPage, err error) {
-	err = c.sendRequestURL(page.Links.Next.Href, "get", &offers)
+	err = c.sendRequestURL(page.Links.Next.Href, nil, "get", &offers)
 	return
 }
 
 // PrevOffersPage returns the previous page of offers.
 func (c *Client) PrevOffersPage(page hProtocol.OffersPage) (offers hProtocol.OffersPage, err error) {
-	err = c.sendRequestURL(page.Links.Prev.Href, "get", &offers)
+	err = c.sendRequestURL(page.Links.Prev.Href, nil, "get", &offers)
 	return
 }
 
 // NextTradesPage returns the next page of trades.
 func (c *Client) NextTradesPage(page hProtocol.TradesPage) (trades hProtocol.TradesPage, err error) {
-	err = c.sendRequestURL(page.Links.Next.Href, "get", &trades)
+	err = c.sendRequestURL(page.Links.Next.Href, nil, "get", &trades)
 	return
 }
 
 // PrevTradesPage returns the previous page of trades.
 func (c *Client) PrevTradesPage(page hProtocol.TradesPage) (trades hProtocol.TradesPage, err error) {
-	err = c.sendRequestURL(page.Links.Prev.Href, "get", &trades)
+	err = c.sendRequestURL(page.Links.Prev.Href, nil, "get", &trades)
 	return
 }
 
@@ -804,14 +811,14 @@ func (c *Client) HomeDomainForAccount(aid string) (string, error) {
 // NextTradeAggregationsPage returns the next page of trade aggregations from the current
 // trade aggregations response.
 func (c *Client) NextTradeAggregationsPage(page hProtocol.TradeAggregationsPage) (ta hProtocol.TradeAggregationsPage, err error) {
-	err = c.sendRequestURL(page.Links.Next.Href, "get", &ta)
+	err = c.sendRequestURL(page.Links.Next.Href, nil, "get", &ta)
 	return
 }
 
 // PrevTradeAggregationsPage returns the previous page of trade aggregations from the current
 // trade aggregations response.
 func (c *Client) PrevTradeAggregationsPage(page hProtocol.TradeAggregationsPage) (ta hProtocol.TradeAggregationsPage, err error) {
-	err = c.sendRequestURL(page.Links.Prev.Href, "get", &ta)
+	err = c.sendRequestURL(page.Links.Prev.Href, nil, "get", &ta)
 	return
 }
 

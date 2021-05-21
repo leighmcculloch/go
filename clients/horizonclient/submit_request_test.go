@@ -13,7 +13,7 @@ func TestSubmitRequestBuildUrl(t *testing.T) {
 
 	// It should return valid endpoint and no errors
 	require.NoError(t, err)
-	assert.Equal(t, "transactions?tx=xyzabc", endpoint)
+	assert.Equal(t, "transactions", endpoint)
 
 	sr = submitRequest{}
 	_, err = sr.BuildURL()
@@ -21,5 +21,22 @@ func TestSubmitRequestBuildUrl(t *testing.T) {
 	// It should return errors
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "invalid request: too few parameters")
+	}
+}
+
+func TestSubmitRequestBuildBody(t *testing.T) {
+	sr := submitRequest{endpoint: "transactions", transactionXdr: "xyzabc"}
+	body, err := sr.BuildBody()
+
+	// It should return valid endpoint and no errors
+	require.NoError(t, err)
+	assert.Equal(t, "tx=xyzabc", string(body))
+
+	sr = submitRequest{}
+	_, err = sr.BuildBody()
+
+	// It should return errors
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "invalid request: submit request missing transaction xdr")
 	}
 }
